@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة استقبال الطلاب — أوراق إجابات الاختبارات المركزية</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+  // شبكة أمان: إن لم تُحمّل مكتبة Excel المزيّنة، حمّل البديل الموثوق
+  if (typeof XLSX === 'undefined') {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+  }
+</script>
+<style>
+  :root{--teal:#0f6e6e;--teal-d:#0a5252;--teal-t:#e6f2f2;--ink:#1f2d2d;--muted:#6b7b7b;--line:#d5dede;--bg:#eef3f3;--ok:#1a7f5a;--gold:#a9791f;--pink:#b83280;--blue:#1f6fb2}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--ink);padding:20px}
+  .wrap{max-width:1280px;margin:0 auto}
+  .head{background:linear-gradient(135deg,var(--teal),var(--teal-d));color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:18px}
+  .head h1{font-size:20px;font-weight:900}
+  .head p{opacity:.9;font-size:14px;margin-top:6px}
+
+  /* لوحة الأزرار الثلاثة الرئيسية */
+  .panel{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+  .pbtn{border:0;font-family:inherit;color:#fff;border-radius:14px;padding:20px 16px;cursor:pointer;text-align:right;transition:.15s;box-shadow:0 8px 24px rgba(15,110,110,.12)}
+  .pbtn:hover{transform:translateY(-2px);opacity:.96}
+  .pbtn:disabled{opacity:.6;cursor:progress;transform:none}
+  .pbtn .t{font-size:16px;font-weight:900;display:block}
+  .pbtn .s{font-size:12.5px;font-weight:500;opacity:.9;display:block;margin-top:4px}
+  .pbtn .ic{font-size:22px}
+  .p-girls{background:linear-gradient(135deg,#b83280,#8a2065)}
+  .p-boys{background:linear-gradient(135deg,#1f6fb2,#134e80)}
+  .p-all{background:linear-gradient(135deg,#1a7f5a,#0e5b3f)}
+  @media(max-width:760px){.panel{grid-template-columns:1fr}}
+
+  .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .count{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-weight:700;color:var(--teal-d)}
+  .spacer{flex:1}
+  .btn{border:0;font-family:inherit;font-weight:700;font-size:14px;padding:11px 20px;border-radius:10px;cursor:pointer}
+  .btn:hover{opacity:.9}
+  .search{flex:1;min-width:200px;font-family:inherit;font-size:14px;padding:11px 14px;border:1.6px solid var(--line);border-radius:10px;text-align:right}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:auto;max-height:64vh}
+  table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right}
+  th{background:var(--teal);color:#fff;position:sticky;top:0;font-weight:700;font-size:12.5px}
+  tr:hover td{background:#f7fbfb}
+  td a.doc{color:var(--teal-d);text-decoration:none;margin-left:6px}
+  td a.doc:hover{text-decoration:underline}
+  .zip{background:var(--gold);color:#fff;border:0;font-family:inherit;font-size:12px;font-weight:700;padding:5px 10px;border-radius:7px;cursor:pointer}
+  .zip:hover{opacity:.9}
+  .tag{display:inline-block;background:var(--teal-t);color:var(--teal-d);border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:700;margin:1px}
+  .state{padding:60px 20px;text-align:center;color:var(--muted)}
+  .err{background:#fdf3f2;border:1px solid #f0c9c4;color:#a5342a;border-radius:10px;padding:16px;text-align:center}
+  .err a{color:var(--teal-d);font-weight:700}
+  .foot{text-align:center;color:var(--muted);font-size:13px;padding:22px 16px 8px;font-weight:500}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>لوحة استقبال الطلاب — أوراق إجابات الاختبارات المركزية (الفصل الدراسي الثاني)</h1>
+    <p>وزارة التعليم · الإدارة العامة للتعليم بمنطقة حائل · صفحة محمية</p>
+  </div>
+  <div id="content"><div class="state" id="loading">جارٍ تحميل السجلات…</div></div>
+  <div class="foot">وزارة التعليم · الإدارة العامة للتعليم بمنطقة حائل · إدارة تقويم الأداء المعرفي والمهاري</div>
+</div>
+
+<script>
+  var DATA = [];
+  var COLS = [
+    ["requestNo","رقم العملية"],["submittedAt","وقت الرفع"],["schoolName","اسم المدرسة"],
+    ["ministryNo","الرقم الوزاري"],["studentName","اسم الطالب/ة"],["civilId","السجل المدني"],
+    ["gender","الجنس"],["grade","الصف"],["subjects","المواد"],["papersCount","عدد الأوراق"]
+  ];
+  function fmtDate(iso){
+    if(!iso) return "";
+    try{
+      var d=new Date(iso);
+      var hijri=d.toLocaleDateString('ar-SA-u-ca-islamic',{year:'numeric',month:'2-digit',day:'2-digit'});
+      var greg=d.toLocaleDateString('en-GB',{year:'numeric',month:'2-digit',day:'2-digit'});
+      var time=d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+      return hijri+' ('+greg+'م) '+time;
+    }catch(e){return iso;}
+  }
+  function blobPath(url){ var i=url.indexOf('/documents/'); var p= i>-1?url.substring(i+'/documents/'.length):''; try{return decodeURIComponent(p);}catch(e){return p;} }
+  function proxyUrl(url){ return '/api/config?action=file&blob='+encodeURIComponent(blobPath(url)); }
+  function docList(r){ return (r.documents||'').split('\n').filter(Boolean); }
+  function subjList(r){ return (r.subjects||'').split(/[،,]/).map(function(s){return s.trim();}).filter(Boolean); }
+
+  fetch('/api/config?action=admin')
+    .then(function(r){ if(r.status===401){throw {auth:true};} return r.json(); })
+    .then(function(res){
+      if(!res.ok){ showError(res.error||'تعذّر تحميل البيانات.', true); return; }
+      DATA=res.rows||[]; render();
+    })
+    .catch(function(err){
+      if(err && err.auth){
+        document.getElementById('content').innerHTML='<div class="err">يجب تسجيل الدخول أولاً.<br><br><a href="/.auth/login/aad?post_login_redirect_uri=/admin.html">تسجيل الدخول بحساب Microsoft</a></div>';
+      } else { showError('خطأ في الاتصال بالخادم.', true); }
+    });
+
+  function showError(msg, showLogout){
+    var html='<div class="err">'+msg;
+    if(showLogout){
+      html+='<div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">'+
+        '<a class="btn" style="background:#0f6e6e;color:#fff;text-decoration:none" href="/.auth/logout?post_logout_redirect_uri=/admin.html">تسجيل الخروج</a>'+
+        '</div>'+
+        '<div style="margin-top:10px;font-size:12px;color:#8a5a54">إن استمرت المشكلة، افتح الصفحة في نافذة تصفّح خاصة.</div>';
+    }
+    html+='</div>';
+    document.getElementById('content').innerHTML=html;
+  }
+
+  function render(){
+    var html=
+      '<div class="panel">'+
+        '<button class="pbtn p-girls" onclick="downloadByGender(this,\'بنات\')">'+
+          '<span class="ic">👧</span> <span class="t">ملفات بنات + ملف إكسل</span>'+
+          '<span class="s">تنزيل أوراق إجابة الطالبات مع ملف إكسل خاص بالبنات (ZIP)</span></button>'+
+        '<button class="pbtn p-boys" onclick="downloadByGender(this,\'بنين\')">'+
+          '<span class="ic">👦</span> <span class="t">ملفات بنين + ملف إكسل</span>'+
+          '<span class="s">تنزيل أوراق إجابة الطلاب مع ملف إكسل خاص بالبنين (ZIP)</span></button>'+
+        '<button class="pbtn p-all" onclick="exportXlsx()">'+
+          '<span class="ic">📊</span> <span class="t">ملف إكسل لجميع الطلبة</span>'+
+          '<span class="s">تصدير بيانات جميع الطلاب (بنين وبنات) في ملف إكسل واحد</span></button>'+
+      '</div>'+
+      '<div class="bar">'+
+      '<div class="count" id="countBox">إجمالي السجلات: '+DATA.length+'</div>'+
+      '<input class="search" id="search" placeholder="بحث بالاسم أو السجل المدني أو المدرسة…">'+
+      '<div class="spacer"></div>'+
+      '<button class="btn" style="background:#1a7f5a;color:#fff" onclick="downloadAllZip(this,true)">⬇ تنزيل الكل (مرفقات + إكسل)</button>'+
+      '<a class="btn" style="background:#eee;color:#333;text-decoration:none" href="/.auth/logout">خروج</a>'+
+      '</div>'+
+      '<div class="card"><table><thead><tr>'+
+        COLS.map(function(c){return '<th>'+c[1]+'</th>';}).join('')+
+        '<th>الأوراق</th><th>تنزيل</th></tr></thead><tbody id="tbody"></tbody></table></div>';
+    document.getElementById('content').innerHTML=html;
+    document.getElementById('search').addEventListener('input',function(){drawRows();});
+    drawRows();
+  }
+
+  function filteredData(){
+    var q=(document.getElementById('search')||{}).value; q=q?q.trim():'';
+    return DATA.filter(function(r){
+      if(q && ((r.studentName||'')+' '+(r.civilId||'')+' '+(r.schoolName||'')).indexOf(q)===-1) return false;
+      return true;
+    });
+  }
+
+  function drawRows(){
+    var tb=document.getElementById('tbody');
+    var rows=filteredData();
+    tb.innerHTML=rows.map(function(r){
+      var cells=COLS.map(function(c){
+        var v=r[c[0]]||'';
+        if(c[0]==='submittedAt') v=fmtDate(v);
+        if(c[0]==='subjects'){ return '<td>'+subjList(r).map(function(s){return '<span class="tag">'+s+'</span>';}).join('')+'</td>'; }
+        return '<td>'+String(v).replace(/</g,'&lt;')+'</td>';
+      }).join('');
+      var docs=docList(r);
+      var docCell='<td>'+(docs.length? docs.map(function(u,i){ var nm=blobPath(u).split('/').slice(-2).join('/'); return '<a class="doc" href="'+proxyUrl(u)+'" target="_blank">📄 '+(i+1)+'</a>'; }).join(' · ') : '—')+'</td>';
+      var gi=DATA.indexOf(r);
+      var zipCell='<td>'+(docs.length? '<button class="zip" onclick="downloadZip('+gi+',this)">⬇ ZIP</button>':'—')+'</td>';
+      return '<tr>'+cells+docCell+zipCell+'</tr>';
+    }).join('');
+    if(!rows.length) tb.innerHTML='<tr><td colspan="'+(COLS.length+2)+'" style="text-align:center;color:#6b7b7b;padding:30px">لا توجد نتائج</td></tr>';
+    var cnt=document.getElementById('countBox');
+    if(cnt) cnt.textContent = rows.length===DATA.length ? ('إجمالي السجلات: '+DATA.length) : ('المعروض: '+rows.length+' من '+DATA.length);
+  }
+
+  async function downloadZip(idx, btn){
+    var r=DATA[idx]; var docs=docList(r); if(!docs.length) return;
+    var old=btn.textContent; btn.textContent='...'; btn.disabled=true;
+    try{
+      var zip=new JSZip();
+      for(var i=0;i<docs.length;i++){
+        var resp=await fetch(proxyUrl(docs[i]));
+        if(!resp.ok) throw new Error('فشل تحميل ورقة '+(i+1));
+        var blob=await resp.blob();
+        var name=blobPath(docs[i]).split('/').slice(-2).join(' - ') || ('ورقة'+(i+1));
+        zip.file(name, blob);
+      }
+      var content=await zip.generateAsync({type:'blob'});
+      var base=((r.studentName||'')+' - '+(r.civilId||r.requestNo||'')).trim().replace(/[\\\/:*?"<>|]/g,'_');
+      var a=document.createElement('a'); a.href=URL.createObjectURL(content);
+      a.download='أوراق_'+base+'.zip'; a.click();
+    }catch(e){ alert('تعذّر تنزيل الأوراق: '+e.message); }
+    btn.textContent=old; btn.disabled=false;
+  }
+
+  // ===== تنزيل مرفقات كل السجلات (بنين وبنات) مع ملف إكسل =====
+  async function downloadAllZip(btn, withExcel){
+    var list=filteredData();
+    if(!list.length){ alert('لا توجد سجلات.'); return; }
+    if(!confirm('سيتم تنزيل أوراق إجابة جميع الطلاب ('+list.length+' سجل)'+(withExcel?' مع ملف إكسل':'')+'. قد يستغرق دقائق. متابعة؟')) return;
+    var old=btn.textContent; btn.disabled=true; btn.style.background='#a9791f';
+    var zip=new JSZip();
+    if(withExcel && typeof XLSX!=='undefined'){
+      try{ var wb=buildWorkbook(list); var xd=XLSX.write(wb,{type:'array',bookType:'xlsx'}); zip.file('بيانات_جميع_الطلبة.xlsx', xd); }catch(e){}
+    }
+    var failed=await zipDocsInto(zip, list, btn);
+    btn.textContent='جارٍ ضغط الملفات...';
+    var content=await zip.generateAsync({type:'blob'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(content);
+    a.download='جميع_الأوراق_'+stamp()+'.zip'; a.click();
+    btn.textContent=old; btn.disabled=false; btn.style.background='#1a7f5a';
+    if(failed) alert('اكتمل التنزيل. تعذّر تحميل '+failed+' ملفاً.');
+  }
+
+  // ===== تنزيل مرفقات جنس معيّن (بنين/بنات) مع ملف إكسل خاص =====
+  async function downloadByGender(btn, gender){
+    var list=filteredData().filter(function(r){ return (r.gender||'')===gender; });
+    if(!list.length){ alert('لا توجد سجلات لفئة «'+gender+'».'); return; }
+    if(!confirm('سيتم تنزيل أوراق إجابة فئة «'+gender+'» ('+list.length+' سجل) مع ملف إكسل. قد يستغرق دقائق. متابعة؟')) return;
+    var old=btn.innerHTML; btn.disabled=true;
+    var zip=new JSZip();
+    if(typeof XLSX!=='undefined'){
+      try{ var wb=buildWorkbook(list); var xd=XLSX.write(wb,{type:'array',bookType:'xlsx'}); zip.file('بيانات_'+gender+'.xlsx', xd); }catch(e){}
+    }
+    var failed=await zipDocsInto(zip, list, btn, gender);
+    var content=await zip.generateAsync({type:'blob'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(content);
+    a.download='أوراق_'+gender+'_'+stamp()+'.zip'; a.click();
+    btn.innerHTML=old; btn.disabled=false;
+    if(failed) alert('اكتمل التنزيل. تعذّر تحميل '+failed+' ملفاً.');
+  }
+
+  // يضغط مرفقات قائمة سجلات داخل zip، منظّمة بمجلد لكل طالب
+  async function zipDocsInto(zip, list, btn, label){
+    var done=0, failed=0;
+    for(var idx=0; idx<list.length; idx++){
+      var r=list[idx]; var docs=docList(r);
+      var folderName=((r.studentName||'')+' - '+(r.civilId||r.requestNo||'')).trim().replace(/[\\\/:*?"<>|]/g,'_');
+      var folder=zip.folder(folderName || ('طالب_'+(idx+1)));
+      for(var i=0;i<docs.length;i++){
+        try{
+          var resp=await fetch(proxyUrl(docs[i]));
+          if(!resp.ok) throw new Error('x');
+          var blob=await resp.blob();
+          var name=blobPath(docs[i]).split('/').slice(-2).join(' - ') || ('ورقة'+(i+1));
+          folder.file(name, blob);
+        }catch(e){ failed++; }
+      }
+      done++;
+      if(btn) btn.textContent='جارٍ التحميل '+done+' من '+list.length+'...';
+    }
+    return failed;
+  }
+
+  // بناء ملف إكسل مزيّن من قائمة سجلات
+  function buildWorkbook(list){
+    var rows=(list||filteredData()).map(function(r){
+      var o={};
+      COLS.forEach(function(c){ o[c[1]] = c[0]==='submittedAt'? fmtDate(r[c[0]]) : (r[c[0]]||''); });
+      return o;
+    });
+    var headers=Object.keys(rows[0]||{});
+    var nCols=headers.length||1;
+    var aoa=[];
+    aoa.push(['وزارة التعليم — الإدارة العامة للتعليم بمنطقة حائل']);
+    aoa.push(['إدارة تقويم الأداء المعرفي والمهاري']);
+    aoa.push(['أوراق إجابات الطلاب للاختبارات المركزية — الفصل الدراسي الثاني']);
+    aoa.push(['تاريخ التصدير: '+new Date().toLocaleString('ar-SA')+'    -    عدد السجلات: '+rows.length]);
+    aoa.push([]);
+    aoa.push(headers);
+    rows.forEach(function(r){ aoa.push(headers.map(function(h){return r[h];})); });
+
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges']=[
+      {s:{r:0,c:0},e:{r:0,c:nCols-1}},
+      {s:{r:1,c:0},e:{r:1,c:nCols-1}},
+      {s:{r:2,c:0},e:{r:2,c:nCols-1}},
+      {s:{r:3,c:0},e:{r:3,c:nCols-1}}
+    ];
+    ws['!cols']=headers.map(function(h){
+      if(h==='اسم الطالب/ة'||h==='اسم المدرسة'||h==='المواد') return {wch:26};
+      if(h==='وقت الرفع') return {wch:24};
+      return {wch:14};
+    });
+    ws['!rows']=[{hpt:26},{hpt:18},{hpt:18},{hpt:16},{hpt:6},{hpt:20}];
+    ws['!views']=[{RTL:true}];
+    function style(addr, s){ if(ws[addr]) ws[addr].s=s; }
+    style('A1',{font:{bold:true,sz:13,color:{rgb:'0F6E6E'}},alignment:{horizontal:'center',vertical:'center'}});
+    style('A2',{font:{bold:true,sz:12,color:{rgb:'0A5252'}},alignment:{horizontal:'center'}});
+    style('A3',{font:{bold:true,sz:11,color:{rgb:'0A5252'}},alignment:{horizontal:'center'}});
+    style('A4',{font:{bold:true,sz:9,color:{rgb:'333333'}},alignment:{horizontal:'center'}});
+    for(var c=0;c<nCols;c++){
+      var addr=XLSX.utils.encode_cell({r:5,c:c});
+      style(addr,{font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'0F6E6E'}},alignment:{horizontal:'center'}});
+    }
+    var wb=XLSX.utils.book_new(); wb.Workbook={Views:[{RTL:true}]};
+    XLSX.utils.book_append_sheet(wb, ws, "الطلبة");
+    return wb;
+  }
+
+  function exportXlsx(){
+    if(typeof XLSX==='undefined'){ alert('تعذّر تحميل مكتبة إكسل. تحقّق من اتصال الإنترنت وأعد المحاولة.'); return; }
+    var list=filteredData();
+    if(!list.length){ alert('لا توجد بيانات للتصدير.'); return; }
+    var wb=buildWorkbook(list);
+    XLSX.writeFile(wb, "جميع_الطلبة_"+stamp()+".xlsx");
+  }
+
+  function stamp(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+</script>
+</body>
+</html>
