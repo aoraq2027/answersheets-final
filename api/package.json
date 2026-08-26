@@ -1,7 +1,5 @@
 {
   "name": "hail-answersheets-api",
   "version": "1.0.0",
-  "description": "Bundled Azure Functions API (dependencies inlined)",
-  "main": "index.js",
-  "engines": { "node": ">=20.0.0" }
+  "main": "index.js"
 }
