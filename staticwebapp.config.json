@@ -4,35 +4,16 @@
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": [
-      "/api/*",
-      "/admin.html"
-    ]
+    "exclude": ["/api/*", "/admin.html"]
   },
   "routes": [
     {
-      "route": "/admin.html",
-      "allowedRoles": [
-        "authenticated"
-      ]
-    },
-    {
       "route": "/api/*",
-      "allowedRoles": [
-        "anonymous"
-      ]
+      "allowedRoles": ["anonymous"]
     },
     {
       "route": "/*",
-      "allowedRoles": [
-        "anonymous"
-      ]
+      "allowedRoles": ["anonymous"]
     }
-  ],
-  "responseOverrides": {
-    "401": {
-      "redirect": "/.auth/login/aad",
-      "statusCode": 302
-    }
-  }
+  ]
 }
