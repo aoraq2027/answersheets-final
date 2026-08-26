@@ -1,7 +1,17 @@
 {
   "name": "hail-answersheets-api",
   "version": "1.0.0",
-  "description": "Bundled Azure Functions API (dependencies inlined)",
+  "description": "Azure Functions backend for the Hail central-exams answer-sheet upload platform",
   "main": "index.js",
-  "engines": { "node": ">=20.0.0" }
+  "scripts": {
+    "build": "echo no build needed",
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.2.2",
+    "@azure/storage-blob": "^12.17.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }
