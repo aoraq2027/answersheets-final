@@ -5,18 +5,37 @@
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 /**
- * Azure Function: config (نسخة تجريبية — اللوحة مفتوحة بلا تسجيل دخول)
+ * Azure Function: config (متعدّد الأوضاع)
  * - بلا معامل: حالة فترة الرفع (يستخدمها النموذج).
- * - ?action=admin: كل السجلات للوحة استقبال الطلاب (مفتوحة — بلا حماية).
- * - ?action=file&blob=...: تمرير مرفق واحد (مفتوح — بلا حماية).
- *
- * ⚠️ تحذير: هذه النسخة بلا حماية للتجربة فقط. لا تنشر رابط اللوحة.
+ * - ?action=admin: كل السجلات للوحة استقبال الطلاب (محمية بقائمة بيضاء).
+ * - ?action=file&blob=...: تمرير مرفق واحد بأمان (محمي بقائمة بيضاء).
  */
 const { TableClient } = __nccwpck_require__(3151);
 const { BlobServiceClient } = __nccwpck_require__(3871);
 
 const REG_START = new Date("2026-01-01T00:00:00+03:00");
 const REG_END   = new Date("2030-12-31T23:59:59+03:00");
+
+// ===== القائمة البيضاء: البُرد المسموح لها بفتح اللوحة =====
+// أضف بريد كل مسؤول كما يظهر في /.auth/me
+const ALLOWED_ADMINS = [
+  "oshl@hotmail.com"
+];
+
+function getAdminEmail(req) {
+  let email = "";
+  const header = req.headers["x-ms-client-principal"];
+  if (header) {
+    try {
+      const d = JSON.parse(Buffer.from(header, "base64").toString("utf8"));
+      email = (d.userDetails || "").toLowerCase();
+    } catch (e) {}
+  }
+  return email;
+}
+function isAdmin(email) {
+  return email && ALLOWED_ADMINS.map(e => e.toLowerCase()).indexOf(email) !== -1;
+}
 
 module.exports = async function (context, req) {
   const respond = (status, body) => {
@@ -26,8 +45,9 @@ module.exports = async function (context, req) {
   try {
     const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-    // ===== وضع تمرير مرفق واحد (مفتوح) =====
+    // ===== وضع تمرير مرفق واحد =====
     if (req.query && req.query.action === "file") {
+      if (!isAdmin(getAdminEmail(req))) return respond(403, { ok: false, error: "غير مصرّح." });
       const blobPath = req.query.blob || "";
       if (!blobPath) return respond(400, { ok: false, error: "مسار الملف مفقود." });
       const svc = BlobServiceClient.fromConnectionString(conn);
@@ -50,9 +70,11 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // ===== وضع لوحة استقبال الطلاب (مفتوح — بلا حماية) =====
+    // ===== وضع لوحة استقبال الطلاب =====
     if (req.query && req.query.action === "admin") {
-      if (!conn) return respond(500, { ok: false, error: "النظام غير مهيّأ: مفقود AZURE_STORAGE_CONNECTION_STRING." });
+      const email = getAdminEmail(req);
+      if (!isAdmin(email)) return respond(403, { ok: false, error: "غير مصرّح لك بالوصول إلى هذه اللوحة." });
+      if (!conn) return respond(500, { ok: false, error: "النظام غير مهيّأ." });
 
       const requests = TableClient.fromConnectionString(conn, "Requests");
       await requests.createTable().catch(function(){});
@@ -68,7 +90,7 @@ module.exports = async function (context, req) {
         });
       }
       rows.sort((a, b) => (a.requestNo || "").localeCompare(b.requestNo || ""));
-      return respond(200, { ok: true, count: rows.length, rows });
+      return respond(200, { ok: true, count: rows.length, rows, admin: email });
     }
 
     // ===== وضع حالة فترة الرفع (الافتراضي) =====
@@ -78,7 +100,10 @@ module.exports = async function (context, req) {
     if (now < REG_START) state = "before";
     else if (now > REG_END) state = "after";
 
-    return respond(200, { open, state, startISO: REG_START.toISOString(), endISO: REG_END.toISOString() });
+    return respond(200, {
+      open, state,
+      startISO: REG_START.toISOString(), endISO: REG_END.toISOString()
+    });
   } catch (err) {
     context.log.error(err);
     return respond(500, { ok: false, error: "خطأ: " + (err.message || err) });
