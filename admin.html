@@ -85,32 +85,47 @@
     }catch(e){return iso;}
   }
   function blobPath(url){ var i=url.indexOf('/documents/'); var p= i>-1?url.substring(i+'/documents/'.length):''; try{return decodeURIComponent(p);}catch(e){return p;} }
-  function proxyUrl(url){ return '/api/config?action=file&blob='+encodeURIComponent(blobPath(url)); }
+  function proxyUrl(url){ return '/api/config?action=file&blob='+encodeURIComponent(blobPath(url))+'&key='+encodeURIComponent(ADMIN_KEY); }
   function docList(r){ return (r.documents||'').split('\n').filter(Boolean); }
   function subjList(r){ return (r.subjects||'').split(/[،,]/).map(function(s){return s.trim();}).filter(Boolean); }
 
-  fetch('/api/config?action=admin')
-    .then(function(r){ if(r.status===401){throw {auth:true};} return r.json(); })
-    .then(function(res){
-      if(!res.ok){ showError(res.error||'تعذّر تحميل البيانات.', true); return; }
-      DATA=res.rows||[]; render();
-    })
-    .catch(function(err){
-      if(err && err.auth){
-        document.getElementById('content').innerHTML='<div class="err">يجب تسجيل الدخول أولاً.<br><br><a href="/.auth/login/aad?post_login_redirect_uri=/admin.html">تسجيل الدخول بحساب Microsoft</a></div>';
-      } else { showError('خطأ في الاتصال بالخادم.', true); }
-    });
+  var ADMIN_KEY = '';
 
-  function showError(msg, showLogout){
-    var html='<div class="err">'+msg;
-    if(showLogout){
-      html+='<div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">'+
-        '<a class="btn" style="background:#0f6e6e;color:#fff;text-decoration:none" href="/.auth/logout?post_logout_redirect_uri=/admin.html">تسجيل الخروج</a>'+
-        '</div>'+
-        '<div style="margin-top:10px;font-size:12px;color:#8a5a54">إن استمرت المشكلة، افتح الصفحة في نافذة تصفّح خاصة.</div>';
-    }
-    html+='</div>';
-    document.getElementById('content').innerHTML=html;
+  function showLogin(msg){
+    document.getElementById('content').innerHTML =
+      '<div style="max-width:420px;margin:40px auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px;text-align:center">'+
+      '<div style="font-size:40px;margin-bottom:6px">🔒</div>'+
+      '<h2 style="color:var(--teal-d);font-size:19px;margin-bottom:6px">لوحة استقبال الطلاب</h2>'+
+      '<p style="color:var(--muted);font-size:14px;margin-bottom:18px">أدخل الرقم السري للدخول</p>'+
+      (msg?'<div style="background:#fdf3f2;border:1px solid #f0c9c4;color:#a5342a;border-radius:8px;padding:9px;font-size:13px;margin-bottom:14px">'+msg+'</div>':'')+
+      '<input id="pw" type="password" placeholder="الرقم السري" style="width:100%;font-family:inherit;font-size:16px;padding:12px 14px;border:1.6px solid var(--line);border-radius:10px;text-align:center;margin-bottom:14px" autofocus>'+
+      '<button id="loginBtn" style="width:100%;background:var(--teal);color:#fff;border:0;font-family:inherit;font-weight:900;font-size:16px;padding:13px;border-radius:10px;cursor:pointer">دخول</button>'+
+      '</div>';
+    var input=document.getElementById('pw');
+    var btn=document.getElementById('loginBtn');
+    function go(){ var v=input.value.trim(); if(!v) return; tryLogin(v); }
+    btn.onclick=go;
+    input.addEventListener('keydown',function(e){ if(e.key==='Enter') go(); });
+    input.focus();
+  }
+
+  function tryLogin(key){
+    document.getElementById('content').innerHTML='<div class="state">جارٍ التحقق…</div>';
+    fetch('/api/config?action=admin&key='+encodeURIComponent(key))
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(res.ok){ ADMIN_KEY=key; DATA=res.rows||[]; render(); }
+        else { showLogin(res.error || 'تعذّر الدخول.'); }
+      })
+      .catch(function(err){
+        showLogin('خطأ في الاتصال بالخادم. تأكد من اكتمال النشر (Actions) ثم أعد المحاولة.');
+      });
+  }
+
+  showLogin('');
+
+  function showError(msg){
+    document.getElementById('content').innerHTML='<div class="err">'+msg+'</div>';
   }
 
   function render(){
@@ -131,7 +146,7 @@
       '<input class="search" id="search" placeholder="بحث بالاسم أو السجل المدني أو المدرسة…">'+
       '<div class="spacer"></div>'+
       '<button class="btn" style="background:#1a7f5a;color:#fff" onclick="downloadAllZip(this,true)">⬇ تنزيل الكل (مرفقات + إكسل)</button>'+
-      '<a class="btn" style="background:#eee;color:#333;text-decoration:none" href="/.auth/logout">خروج</a>'+
+      '<button class="btn" style="background:#eee;color:#333" onclick="logout()">قفل</button>'+
       '</div>'+
       '<div class="card"><table><thead><tr>'+
         COLS.map(function(c){return '<th>'+c[1]+'</th>';}).join('')+
@@ -302,6 +317,8 @@
     var wb=buildWorkbook(list);
     XLSX.writeFile(wb, "جميع_الطلبة_"+stamp()+".xlsx");
   }
+
+  function logout(){ ADMIN_KEY=''; DATA=[]; showLogin(''); }
 
   function stamp(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
 </script>
